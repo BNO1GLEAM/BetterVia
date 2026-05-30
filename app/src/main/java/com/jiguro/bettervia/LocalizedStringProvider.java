@@ -1088,6 +1088,9 @@ public class LocalizedStringProvider {
 		addLocalizedString("share_started", "en", "Share started");
 		addLocalizedString("share_failed", "zh-CN", "分享失败");
 		addLocalizedString("share_failed", "zh-TW", "分享失敗");
+		addLocalizedString("remove_baidu_promo_id_switch", "zh-CN", "去除百度搜索推广ID");
+		addLocalizedString("remove_baidu_promo_id_switch", "zh-TW", "去除百度搜索推廣ID");
+		addLocalizedString("remove_baidu_promo_id_switch", "en", "Remove Baidu Promo ID");
 		addLocalizedString("share_failed", "en", "Share failed");
 		addLocalizedString("download_dialog_share_switch", "zh-CN", "下载分享");
 		addLocalizedString("download_dialog_share_switch", "zh-TW", "下載分享");
