@@ -95,6 +95,7 @@ public class Hook implements IXposedHookLoadPackage {
 	private static final String KEY_PRIVACY_LOCK_APPLY_COMPREHENSIVE = "privacy_lock_apply_comprehensive";
 	private static final String KEY_PRIVACY_LOCK_PASSWORD_TYPE = "privacy_lock_password_type"; 
 	private static final String KEY_PRIVACY_LOCK_PASSWORD_SET = "privacy_lock_password_set"; 
+	private static final String KEY_REMOVE_BAIDU_PROMO_ID = "remove_baidu_promo_id";
 	private static boolean whitelistHookEnabled = true;
 	private static boolean eyeProtectionEnabled = false;
 	private static boolean blockGoogleServicesEnabled = false;
@@ -114,6 +115,7 @@ public class Hook implements IXposedHookLoadPackage {
 	private static boolean backgroundVideoEnabled = false;
 	private static boolean developerModeEnabled = false;
 	private static boolean blockSwipeBackEnabled = false;
+	private static boolean removeBaiduPromoIdEnabled = false;
 	private static PrintWriter logWriter = null;
 	private static String logFilePath = null;
 	private static final int MONET_BUFFER_SIZE = 8192;
@@ -140,6 +142,7 @@ public class Hook implements IXposedHookLoadPackage {
 	private static XC_MethodHook.Unhook showUrlSchemeHook = null;
 	private static XC_MethodHook.Unhook backgroundVideoHook = null;
 	private static XC_MethodHook.Unhook swipeBackHook = null;
+	private static XC_MethodHook.Unhook removeBaiduPromoIdHook = null;
 	private static final String[] COMPONENT_KEYS = {"block_update", 
 			"block_telegram", 
 			"block_qq", 
@@ -296,6 +299,56 @@ public class Hook implements IXposedHookLoadPackage {
 				return "zh-CN";
 			}
 			return saved;
+		}
+	}
+
+	private static void setRemoveBaiduPromoIdHook(Context ctx, ClassLoader cl, boolean enable) {
+		if (enable) {
+			if (removeBaiduPromoIdHook != null) {
+				bvLog("[BetterVia] 去除百度推广ID Hook 已存在，跳过重复安装");
+				return;
+			}
+			try {
+				// 直接 hook 实现类 t9.k（Dalvik 描述符 Lt9/k;）
+				Class<?> targetClass = cl.loadClass("t9.k");
+				Set<XC_MethodHook.Unhook> unhooks = XposedBridge.hookAllMethods(targetClass, "i",
+						new XC_MethodReplacement() {
+							@Override
+							protected Object replaceHookedMethod(MethodHookParam param) {
+								return "";
+							}
+						});
+				if (!unhooks.isEmpty()) {
+					removeBaiduPromoIdHook = unhooks.iterator().next();
+					bvLog("[BetterVia] 去除百度搜索推广ID Hook 安装成功（直接类）");
+				} else {
+					// 降级：hook 接口 t9.e 的所有实现
+					Class<?> interfaceClass = cl.loadClass("t9.e");
+					Set<XC_MethodHook.Unhook> ifaceUnhooks = XposedBridge.hookAllMethods(interfaceClass, "i",
+							new XC_MethodReplacement() {
+								@Override
+								protected Object replaceHookedMethod(MethodHookParam param) {
+									return "";
+								}
+							});
+					if (!ifaceUnhooks.isEmpty()) {
+						removeBaiduPromoIdHook = ifaceUnhooks.iterator().next();
+						bvLog("[BetterVia] 去除百度搜索推广ID Hook 安装成功（接口降级）");
+					} else {
+						bvLog("[BetterVia] 去除百度搜索推广ID Hook 安装失败：未找到可 Hook 的方法");
+					}
+				}
+			} catch (ClassNotFoundException e) {
+				bvLog("[BetterVia] 去除百度搜索推广ID Hook 失败（类未找到）: " + e.getMessage());
+			} catch (Throwable t) {
+				bvLog("[BetterVia] 去除百度搜索推广ID Hook 失败: " + t);
+			}
+		} else {
+			if (removeBaiduPromoIdHook != null) {
+				removeBaiduPromoIdHook.unhook();
+				removeBaiduPromoIdHook = null;
+				bvLog("[BetterVia] 去除百度搜索推广ID Hook 已卸载");
+			}
 		}
 	}
 	@Override
@@ -512,6 +565,10 @@ public class Hook implements IXposedHookLoadPackage {
 					setKeepScreenOn(ctx, cl, keepScreenOnEnabled);
 					backgroundVideoEnabled = getPrefBoolean(ctx, KEY_BACKGROUND_VIDEO, false);
 					setBackgroundVideoAudio(ctx, cl, backgroundVideoEnabled);
+					removeBaiduPromoIdEnabled = getPrefBoolean(ctx, KEY_REMOVE_BAIDU_PROMO_ID, false);
+					if (removeBaiduPromoIdEnabled) {
+						setRemoveBaiduPromoIdHook(ctx, cl, true);
+					}
 				} else {
 					bvLog("[BetterVia] 用户未完成初始设置（语言选择/用户协议/版本选择），暂不执行Hook功能（隐私锁除外）");
 				}
@@ -739,6 +796,16 @@ public class Hook implements IXposedHookLoadPackage {
 							public void run() {
 								boolean on = getPrefBoolean(ctx, KEY_EYE_PROTECTION, false);
 								setEyeProtectionMode(ctx, act.getClassLoader(), on);
+							}
+						});
+				addSwitch(root, act, LocalizedStringProvider.getInstance().get(ctx, "remove_baidu_promo_id_switch"),
+						LocalizedStringProvider.getInstance().get(ctx, "remove_baidu_promo_id_hint"),
+						KEY_REMOVE_BAIDU_PROMO_ID, false, new Runnable() {
+							@Override
+							public void run() {
+								boolean on = getPrefBoolean(ctx, KEY_REMOVE_BAIDU_PROMO_ID, false);
+								removeBaiduPromoIdEnabled = on;
+								setRemoveBaiduPromoIdHook(ctx, act.getClassLoader(), on);
 							}
 						});
 				addEyeProtectionConfig(root, act, ctx);
